@@ -14,7 +14,7 @@ df = pd.DataFrame(data)
 clients = ["Client A", "Client B", "Client C"]
 
 def new_invoice_form(client):
-    invoice_no = len(df) + 1
+    invoice_no = 1 #len(df) + 1
     date = st.date_input("Date")
     project = st.text_input("Project")
     amount = st.number_input("Amount")
