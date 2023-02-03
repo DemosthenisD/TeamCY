@@ -7,7 +7,7 @@ import streamlit as st
 import pandas as pd
 
 # Data to store invoices
-data = {"Invoice No": [0], "Client": [TEST], "Date": [1-1-2023], "Project": [TestPrj], "Amount": [0.00], "VAT": [0.00], "Description": [First_Sample Invoice]}
+data = {"Invoice No": [0], "Client": ["TEST"], "Date": ["1-1-2023"], "Project": ["TestPrj"], "Amount": [0.00], "VAT": [0.00], "Description": ["First_Sample Invoice"]}
 df = pd.DataFrame(data)
 
 # List of authorized clients
