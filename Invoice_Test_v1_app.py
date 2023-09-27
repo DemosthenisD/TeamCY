@@ -40,7 +40,10 @@ if client:
     create = st.button("Create")
     if create:
         df_new = pd.DataFrame({"Invoice No": [invoice_no], "Client": [client], "Date": [date], "Project": [project], "Amount": [amount], "VAT": [vat], "Description": [description]})
-        df = df.append(df_new)
+        master_list = []
+        master_list.append(df)
+        master_list.append(df_new)
+        df = pd.concat(master_list, ignore_index=True)
         st.success("Invoice created successfully!")
         # print the invoice in word based on the template
         # Code to generate the invoice based on the template goes here
