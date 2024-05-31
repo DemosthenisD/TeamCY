@@ -1,0 +1,84 @@
+#This code example uses the streamlit and pandas libraries to create a table of invoices issued and allow authorized users to create new invoices.
+#The user can select a client from a drop-down list and then fill out a form with the relevant information to create a new invoice.
+#The new invoice is then appended to the table of invoices issued and a success message is displayed.
+#The code also includes a placeholder for generating a word invoice based on a pre-defined template.
+
+import streamlit as st
+import pandas as pd
+import docx
+from docx import Document
+
+# Data to store invoices
+data = {"Invoice No": [0], "Client": ["TEST"], "Date": ["1/1/2023"], "Project": ["TestPrj"], "Amount": [0], "VAT": [0], "Description": ["First_Sample Invoice"]}
+template_path = "Milliman Invoice 20YY - XX ClientName V2.docx"
+df = pd.DataFrame(data)
+df.insert(3, "Year",df["Date"].year)
+
+# List of authorized clients
+clients = ["Client A", "Client B", "Client C", "Client D"]
+
+def generate_invoice(template_path, invoice_data, output_path):
+    doc = Document(template_path)
+    
+    # Replace placeholders with invoice data
+    for key, value in invoice_data.items():
+        for paragraph in doc.paragraphs:
+            if key in paragraph.text:
+                paragraph.text = paragraph.text.replace(key, str(value))
+    
+    # Save the generated invoice
+    doc.save(output_path)
+
+
+
+client = st.selectbox("Select Client", clients)
+if client:
+    
+    invoice_no = 1 #len(df) + 1
+    date = st.date_input("Date")
+    project = st.text_input("Project")
+    amount = st.number_input("Amount")
+    vat = st.number_input("VAT_%")
+    description = st.text_area("Description")
+    create = st.button("Create")
+    if create:
+        df_new = pd.DataFrame({"Invoice No": [invoice_no], "Client": [client], "Date": [date], "Project": [project], "Amount": [amount], "VAT": [vat], "Description": [description]})
+        master_list = []
+        master_list.append(df)
+        master_list.append(df_new)
+        df = pd.concat(master_list, ignore_index=True)
+        invoice_data = {
+            "%InvDate%":date,
+            "%InvYear%":[date].year,
+            "%InvoiceDescription1%":description,
+            "%InvAmtNet1%":amount,
+            "%InvVATAmt1%":vat*amount,
+            "%InvAmtNetTot%":amount,
+            "%InvVATAmtTot%":vat*amount,
+            "%ClientName%":client,
+        #    "%ClientAddress%":,
+        #    "%Inv_No%": 1001,
+        #    "%CLIENT%": "Client A",
+        #    "%DATE%": "2024-02-19",
+            "%PROJECT%": project,
+        #    "%AMOUNT%": 1000,
+        #    "%VAT%": 200,
+        #    "%DESCRIPTION%": "Consulting services"
+            }
+
+        # print the invoice in word based on the template
+        # Code to generate the invoice based on the template goes here
+        generate_invoice(template_path,invoice_data,"Milliman Invoice "& [date].year&" - "&[invoice_no]&" - "&[client]&".docx")
+        st.success("Invoice created successfully!")
+
+
+st.write("Invoices Issued:", df)
+
+#def main():
+#    client = st.selectbox("Select Client", clients)
+#    if client:
+#        new_invoice_form(client)
+#    st.write("Invoices Issued:", df)
+
+#if __name__ == "__main__":
+#    main()
