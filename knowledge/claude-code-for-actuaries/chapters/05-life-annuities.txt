@@ -1,0 +1,1493 @@
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ CHAPTER 5
+
+ Life & Annuities
+ Life and annuities (individual life, annuities, retirement, health riders) is where Claude Code delivers the
+ most immediate value. Models are complex, calculations are numerous, and regulatory requirements
+ (risk-based capital, principle-based reserving under VM-20, US GAAP LDTI, asset adequacy testing)
+ impose a high standard of rigor and documentation. This chapter follows the organization of a typical
+ insurance company: ALM, Assets, Modeling, Risk Measurement, Model Validation, Valuation, Product,
+ Investments, and Health.
+
+
+ 5.1 Risk Division — ALM Team
+ The ALM team ensures assets and liabilities stay matched. It projects cash flows, manages strategic
+ allocation and builds the asset-liability projection models.
+
+
+ Use case 1 — Valuing a bond portfolio
+
+   Situation: The ALM actuary must value a bond portfolio and project its cash flows (coupons, redemptions)
+   with credit risk included. That covers fixed-rate, floating-rate and inflation-linked bonds, with default
+   probabilities and recovery rates. These valuations feed reserve adequacy work, stress tests and allocation
+   decisions.
+
+ What Claude Code will design: a library of valuation functions, one per bond type, that take the
+ security's characteristics and market curves as inputs and return market value, book value and yield to
+ maturity. Each function handles curve interpolation and credit risk.
+
+ The market value of a risky bond in a risk-neutral framework is written:
+
+
+
+
+ where the coupon of a risky bond combines surviving and defaulted notionals:
+
+
+
+
+ The inputs, concretely
+ The prompt below manipulates four kinds of data. Knowing what each one represents is what makes the
+ function signatures readable:
+
+     • The zero-coupon curve (zc_curve): the risk-free rate curve from your economic scenario
+     generator, given as points (t, maturity, rate): at valuation time t, the annualized rate for each quoted
+     maturity (1 to 40 years, typically). Intermediate maturities are interpolated — hence the first function.
+
+
+
+
+                                                                          20
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+     • Notional schedules (surviving_notional, defaulted_notional): outputs of the credit model. At
+     each future date they split the initial notional between the part still performing and the part in default,
+     driven by the cumulative default probability curve.
+     • Recovery (recovery_rate, recovery_flag): the share of a defaulted notional that is recovered, and
+     a flag saying whether defaulted notional keeps paying coupons weighted by that recovery rate.
+     • Valuation parameters (spread, projection_basis): the extra margin added to the curve when
+     discounting this security, and the choice of risk-neutral or real-world discounting.
+ The companion pack of this use case ships a worked example of every one of these structures — a
+ 15-bond portfolio, the curves and the default probabilities — with the column-by-column dictionary in its
+ CLAUDE.md.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > I want a Python bond valuation library for a life insurance ALM
+   > model. Create a module bond_valuation.py with:
+   >
+   > 1. A function interpolate_zc(t, maturity, zc_curve) that
+   >    interpolates a zero-coupon rate by cubic spline. The curve is
+   >    given as points (t, maturity, rate). Use flat extrapolation
+   >    beyond the last point.
+   >
+   > 2. A function mv_fixed_rate(t, maturity, coupon_freq, coupon_rate,
+   >    redemption_rate, surviving_notional, defaulted_notional,
+   >    recovery_rate, recovery_flag, zc_curve, default_prob_curve,
+   >    spread, projection_basis) that computes the market value of a
+   >    risky fixed-rate bond. The coupon combines the surviving
+   >    notional plus the defaulted notional weighted by the recovery
+   >    rate when coupon recovery is active. The default probability
+   >    curve drives surviving/defaulted notionals; the spread is added
+   >    to the rate curve; the projection basis (risk-neutral or
+   >    real-world) determines discounting.
+   >
+   > 3. A function mv_floating_rate(...) identical but where the coupon
+   >    rate is a forward rate rebuilt from the ZC curve.
+   >
+   > 4. A function mv_inflation_linked(...) with two curves (real and
+   >    nominal) and a floor on redemption: the redemption paid is the
+   >    max of the inflation-indexed notional and the initial notional.
+   >
+   > 5. A function ytm(...) that computes yield to maturity by
+   >    bisection: the single rate equating the discounted future cash
+   >    flows to the current book value.
+   >
+   > Write clear docstrings, handle coupon_freq=0 (zero-coupon), and
+   > add unit tests checking: MV=0 after maturity, consistency when
+   > default probabilities are zero (constant surviving notional), and
+   > YTM convergence.
+
+
+ Expected inputs:
+     • Each bond's characteristics (maturity, coupon frequency and rate, redemption rate)
+     • Surviving and defaulted notionals from the credit model, and the default probability curve
+     • Zero-coupon curves (from your economic scenario generator), recovery rate, coupon recovery flag
+
+
+
+                                                                          21
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+     • The additional spread over the curve, and the projection basis (risk-neutral or real-world)
+
+ Expected outputs:
+     • A tested Python module with valuation functions per bond type
+     • Market value, book value and yield to maturity for each security
+     • A battery of unit tests validating the edge cases
+
+
+   Note: With credit risk switched off, default probabilities are zero: the surviving notional stays equal to the
+   initial notional and the defaulted notional is nil. The valuation then collapses to classic discounted cash flows.
+   Other simplifying assumptions are implied (e.g. no call option, no FX, no floating rate).
+
+
+
+   Companion resources: replicate this use case at home — the project folder (CLAUDE.md, ready-to-paste
+   prompts, dataset and instructions) is available for download: Google Drive folder. The pack adds a 15-bond
+   synthetic portfolio (four bond types, ratings AAA to BB), the zero-coupon and default curves, and reference
+   values to check your run against.
+
+
+
+ Use case 2 — Asset-liability projection engine
+
+   Situation: The Risk division needs an asset-liability projection tool: a calculation engine that projects a life
+   insurer's assets and liabilities simultaneously over 40+ years, time step by time step. In practice it starts from
+   detailed functional specifications and assumption tables (portfolios, economic context, biometric and
+   policyholder behavior assumptions). It is the most structuring project a modeling team owns.
+
+ What Claude Code will design: a modular projection engine, fed by assumption tables, able to project
+ every asset class and every liability product while handling asset-liability interactions at each time step
+ (credited rates, dividend policy, allocation rebalancing, asset sales to pay benefits).
+
+ Engine inputs (assumption tables):
+
+     • Asset portfolio: bonds (fixed, floating, inflation-linked), index assets (equities, real estate, private
+     equity, funds), derivatives (caps, floors, swaps, puts, calls)
+     • Liability portfolio: deferred annuities, fixed and indexed annuities, universal life with secondary
+     guarantees, term and whole life blocks
+     • Economic context: ESG scenarios (rate curves, equity returns, inflation, spreads), risk-neutral or
+     real-world
+     • Biometric and behavioral assumptions: mortality tables, structural and dynamic lapse laws,
+     annuitization and partial withdrawal rates, premium persistency
+ On the liability side, the engine projects: account values by fund, premiums and loads, benefits
+ (deaths, full and partial surrenders, dynamic lapses, maturities and annuitizations), credited interest,
+ guaranteed minimum rates, and the dividend / credited-rate policy.
+
+ On the asset side: bond cash flows (coupons, redemptions), index asset performance and dividends,
+ real estate income, market and book values by bucket, realized and unrealized gains and losses,
+ rebalancing toward the strategic allocation.
+
+
+
+
+                                                                          22
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt (adapt to your specifications)
+   ● ● ● claude
+
+
+   > Context: I am building an asset-liability projection engine for a
+   > US life insurer, in Python. I will provide my functional
+   > specifications in the ./specs folder (an asset document, a
+   > liability document, and a document describing the year-end
+   > closing algorithms). Read them in full before starting.
+   >
+   > EXPECTED ARCHITECTURE:
+   > - A projection engine with a monthly loop over 480 steps (40
+   >   years).
+   > - An abstract Asset class with subclasses: FixedRateBond,
+   >   FloatingRateBond, InflationLinkedBond, Equity, RealEstate,
+   >   PrivateEquity, Fund, Cash, and Derivative (Cap, Floor, Swap,
+   >   Put, Call).
+   > - An abstract Liability class with subclasses: DeferredAnnuity,
+   >   FixedIndexedAnnuity, UniversalLife, TermBlock, PayoutAnnuity.
+   > - An Assumptions module that loads the tables from ./data (asset
+   >   portfolio, liability model points, ESG scenarios, biometric and
+   >   behavioral tables).
+   >
+   > TIME-STEP LOGIC (in this order):
+   > 1. Initialization / start of period: asset recalibration.
+   > 2. Liability roll-forward: age and duration updates, mortality and
+   >    lapse application (structural + dynamic), surviving counts.
+   > 3. Asset performance: coupons, dividends, revaluation, investment
+   >    income and realized gains/losses.
+   > 4. Benefits: full/partial surrenders, deaths, maturities. Sell
+   >    assets if cash is insufficient.
+   > 5. Premiums: initial, scheduled and flexible.
+   > 6. Credited interest: guaranteed minimum rate, then target
+   >    credited rate.
+   > 7. Credited-rate / dividend policy: apply the company's crediting
+   >    strategy (parametrizable), manage the interest maintenance
+   >    logic.
+   > 8. Investment strategy: rebalance the allocation toward the
+   >    strategic target (buys/sells by asset class).
+   > 9. Update account values and reserves by product.
+   >
+   > DYNAMIC LAPSE: model it as a function of the spread between the
+   > market reference rate and the credited rate (capped sigmoid),
+   > parametrizable through the behavioral assumptions table.
+   >
+   > OUTPUTS: at each step, export net income, the credited rate,
+   > account values, reserves, and the market value of the portfolio
+   > by class. Produce a results file in Parquet format (a compressed
+   > columnar data format) and a summary report.
+   >
+   > QUALITY: structure the code in clear modules, add unit tests on
+   > each brick (a single bond, a single contract), and global
+   > consistency tests (reserve conservation, asset-liability balance
+   > equality). Document every module.
+   >
+   > Start by proposing the project structure and the class
+   > signatures, then wait for my validation before writing the
+   > implementation.
+
+
+ Expected inputs:
+
+
+
+                                                                          23
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+     • Functional specifications (asset and liability) in a dedicated folder
+     • Assumption tables: asset and liability portfolios, ESG scenarios, biometric and behavioral tables
+
+ Expected outputs:
+     • A modular, tested, documented projection engine
+     • Projected cash flows and reserves step by step, assets and liabilities
+     • A summary report and a usable results file
+
+
+   Tip: Make Claude Code work in stages. Ask for the architecture and class signatures first, validate them,
+   then let it implement module by module with tests along the way. That is the best path to a reliable engine on
+   a project of this size.
+
+
+
+   Note: Asset-liability projection models are highly complex tools. Their parameterization and
+   business-specific features can be embedded in numerous components throughout the model. As such, the
+   output generated from this prompt would most likely serve as a starting point for a cell-by-cell validation
+   approach rather than a complete solution. Critical elements such as economic scenario calibration,
+   accounting rules, complex asset projections, investment strategies, expense modeling, and numerous other
+   actuarial assumptions would still require detailed expert review.
+
+
+
+ Use case 3 — ALM monitoring dashboard
+
+   Situation: The ALM team regularly produces indicators for the risk committee: asset and liability duration,
+   duration gap, coverage ratio, sensitivity to rate shocks, liquidity gap. These indicators are often scattered
+   across several manually updated Excel files, then re-copied into decks. The goal is to centralize everything
+   in an up-to-date interactive dashboard.
+
+ What Claude Code will design: a local web application (Streamlit) that reads the portfolio data,
+ computes the ALM indicators and displays them in interactive charts, with filters and an export option.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Streamlit ALM monitoring dashboard for a life insurer.
+   > It reads data from ./data (asset positions in Excel, liability
+   > cash flow schedule in CSV) and displays:
+   > - At the top: 4 key indicators (asset duration, liability
+   >   duration, duration gap, coverage ratio) as cards.
+   > - A chart of the projected cash flow gap over 40 years (asset
+   >   flows minus liability flows by year).
+   > - A sensitivity curve of the coverage ratio to rate shocks, from
+   >   -150 bp to +150 bp in 25 bp steps.
+   > - A pie chart of portfolio composition by asset class.
+   > - A filterable table of positions, with Excel export.
+   > Use a sober theme and professional colors. Add a data refresh
+   > button and handle missing files cleanly.
+
+
+ Expected inputs:
+     • Asset positions (Excel), liability cash flow schedule (CSV)
+
+
+
+                                                                          24
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ Expected outputs:
+     • A Streamlit app launched with one command, with indicators, charts and export
+
+
+   Note: If you do not specify one aspect, the tool will provide a solution internally in order to move forward.
+   Macaulay duration, modified duration, effective duration, key rate duration... Parallel shocks, steepening
+   shocks, PCA shocks... Claude will pick and move forward, and may tell you what was picked in the
+   documentation it produces.
+
+
+
+ Use case 4 — Strategic asset allocation
+
+   Situation: The insurer must set the target allocation of its portfolio (bonds, equities, real estate, cash) under
+   multiple constraints: a target yield to support credited rates, RBC capital charges by asset class, liquidity
+   constraints for surrenders, a target duration to match liabilities. It is a constrained optimization problem
+   traditionally handled in Excel Solver, with its limits.
+
+ What Claude Code will design: an allocation optimizer that builds the efficient frontier under regulatory
+ and business constraints and proposes the optimal risk-adjusted allocation.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Build a strategic allocation optimizer in Python (scipy.optimize).
+   > Asset classes: government bonds, corporate bonds, US equities,
+   > international equities, real estate, cash.
+   > Inputs (Excel file): expected return and volatility by class,
+   > correlation matrix, duration and NAIC RBC C-1 charge by class.
+   > Constraints: minimum portfolio yield 2.5%; asset duration between
+   > 8 and 12 years; total C-1 capital charge below 15% of surplus;
+   > equity bucket capped at 20%; cash bucket at least 5% for
+   > liquidity.
+   > Objective: maximize the Sharpe ratio (risk-adjusted return).
+   > Outputs: the optimal allocation, the efficient frontier plot, an
+   > allocation table with the binding constraints identified, and a
+   > sensitivity analysis of the allocation to the target yield.
+
+
+ Expected outputs:
+     • The optimal target allocation and the efficient frontier
+     • The detail of binding constraints and a sensitivity analysis
+
+
+   Note: The liability side is assumed to have been shared through a different mechanism. Numerous elements
+   are not specified here (e.g. volatility, convexity, tail risk, rating agency capital), and Claude Code will fill the
+   gap with its own assumptions.
+
+
+
+ 5.2 Risk Division — Assets and Investment Strategy
+ This section covers index asset projection beyond the plain vanilla non-callable bond, consolidated
+ portfolio valuation and the strategic rebalancing logic.
+
+
+
+
+                                                                          25
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ Use case 5 — Line-by-line equity projection (performance and
+ dividends)
+
+   Situation: ALM and investment teams must project each equity line individually, not in aggregate: unrealized
+   and realized gains and losses, dividends paid, market value. Unlike bonds, there are no deterministic flows:
+   performance depends entirely on the ESG market scenarios.
+
+ What Claude Code will design: a module that projects, CUSIP by CUSIP, the market value of each
+ equity holding under the ESG return scenarios, separating total return performance, distributed dividends
+ and gains/losses.
+
+ The market value of an index asset evolves with the scenario's total return performance, net of the
+ distributed dividend yield:
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python module equity_projection.py to project an equity
+   > portfolio line by line in an ALM model.
+   > Inputs: an equity portfolio (identifier, initial market value,
+   > initial book value, dividend yield) and ESG total return
+   > scenarios by time step.
+   > For each line and each time step, compute:
+   > - the scenario total return applied to the line,
+   > - distributed dividends (dividend yield applied to MV),
+   > - the new market value = previous MV x (1 + TR perf) - dividends,
+   > - unrealized gains/losses = MV - book value,
+   > - realized gains/losses in case of sale.
+   > Handle multiple stochastic scenarios in parallel (vectorize with
+   > numpy).
+   > Outputs: one DataFrame per scenario with line-level detail by
+   > step, plus a portfolio aggregate. Add consistency tests (sum of
+   > line MVs = portfolio MV).
+
+
+ Expected inputs:
+     • Equity portfolio (initial MV and book value, dividend yield by line)
+     • ESG total return scenarios
+
+ Expected outputs:
+     • Line-by-line projection: MV, dividends, unrealized and realized gains/losses
+     • An aggregated portfolio view consistent with the line-level detail
+
+
+   Note: As with any generated module, validate the output against a small hand-built benchmark (a few
+   positions reproduced in a spreadsheet) before relying on it.
+
+
+
+
+                                                                          26
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ Use case 6 — Consolidated multi-class portfolio valuation
+
+   Situation: The insurer holds a portfolio of bonds, equities, real estate, funds and cash. A consolidated view
+   is needed for reporting, ALM monitoring and capital calculations. Today that consolidation is often a manual
+   assembly of several files — error-prone and slow.
+
+ What Claude Code will design: a consolidation tool that aggregates the valuation of all asset classes,
+ computes global indicators (duration, yield, breakdown by rating, by maturity, by class) and produces a
+ summary report.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python tool for consolidated valuation of an insurer's
+   > asset portfolio. It reads several sources in ./data: bonds
+   > (Excel), equities (Excel), real estate (CSV), funds (CSV), cash
+   > (CSV). It produces:
+   > - a consolidated valuation (total market and book value, and by
+   >   asset class),
+   > - the portfolio duration (weighted average of bond durations),
+   > - the average portfolio yield,
+   > - the breakdown by asset class, by credit rating, by maturity
+   >   bucket,
+   > - a consistency check (sum of classes equals the total).
+   > Output: a consolidated Excel report with a summary sheet and one
+   > detail sheet per class, plus charts (breakdown, maturity
+   > profile). Handle missing files cleanly.
+
+
+ Expected inputs:
+     • Position files by asset class
+
+ Expected outputs:
+     • A consolidated Excel report with summary, detail and charts
+     • Global indicators: duration, yield, breakdowns
+
+
+ Use case 7 — Investment strategy and allocation rebalancing
+
+   Situation: At each projection step, the insurer rebalances its asset allocation toward the strategic target.
+   That means buying and selling securities under precise rules: which classes to reinforce, which securities to
+   sell, and for bond purchases, which maturities and coupons to pick. It is a transversal, time-consuming topic
+   for modeling teams.
+
+ What Claude Code will design: a rebalancing module that, at each time step, computes the gaps
+ between the current and target allocations, derives the buy and sell amounts by class, and constructs the
+ new bond holdings (maturity and coupon chosen per the investment policy).
+
+
+
+
+                                                                          27
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a module investment_strategy.py for an ALM projection
+   > engine. At each time step it applies the reallocation strategy:
+   >
+   > 1. Compute the current allocation by class (from market values)
+   >    and compare it to the strategic target provided as an
+   >    assumption.
+   > 2. Determine the amounts to buy or sell by class to return to
+   >    target, respecting a tolerance corridor (e.g. only reallocate
+   >    if the gap exceeds 2%).
+   > 3. For sales: apply a rule (e.g. first in first out, or pro rata)
+   >    and compute realized gains/losses.
+   > 4. For bond purchases: build new securities per the investment
+   >    policy (target maturity, coupon at the current market rate for
+   >    the chosen maturity, target credit rating).
+   > 5. Update the portfolio and return the transaction detail.
+   >
+   > Inputs: current portfolio, target allocation, tolerance corridor,
+   > investment policy (target maturities and ratings), market curves.
+   > Outputs: rebalanced portfolio, transaction log (buys/sells by
+   > class), realized gains/losses.
+   > Add tests: after rebalancing, the allocation is inside the
+   > corridor; total value is conserved (before costs).
+
+
+ Expected inputs:
+     • Current portfolio, target allocation, tolerance corridor, investment policy, market curves
+
+ Expected outputs:
+     • Rebalanced portfolio, transaction log by class, realized gains and losses
+
+
+ 5.3 Risk Division — Modeling Team
+ The modeling team, usually inside the Risk division, designs and maintains the models used by every
+ other team. It writes new code, maintains legacy VBA, and documents the models.
+
+
+ Use case 8 — Developing VBA valuation functions
+
+   Situation: Many production projection models still run on Excel/VBA. The team must develop specialized
+   functions (interpolation, valuation, forward rates) from mathematical specifications. Claude Code
+   dramatically speeds up this work by generating robust, documented VBA.
+
+ Here are the main functions developed with Claude Code for a bond projection model, with an excerpt of
+ the generated code.
+
+ ZcInterpolCubic — cubic interpolation of rate curves
+ Interpolates a zero-coupon rate for any maturity, by cubic spline, from the curve provided by the ESG.
+
+
+
+
+                                                                          28
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a VBA function ZcInterpolCubic(time, maturity, zc_table)
+   > that interpolates a zero-coupon rate by constrained cubic spline
+   > from a ZC rate table. It takes the time step, the maturity in
+   > months, and the Excel range of the curve. Build a reusable spline
+   > object and return the interpolated rate. Use flat extrapolation
+   > outside the bounds.
+
+ Excerpt of the generated function:
+
+   ● ● ● VBA
+
+
+   Function ZcInterpolCubic(ByVal time As Double, _
+                            ByVal maturity As Double, _
+                            ByRef zc_table As Range) As Double
+       Dim n As Long, i As Long
+       n = zc_table.Rows.Count
+       Dim xs() As Double, ys() As Double
+       ReDim xs(1 To n): ReDim ys(1 To n)
+       For i = 1 To n
+           xs(i) = zc_table.Cells(i, 1).Value   ' maturities
+           ys(i) = zc_table.Cells(i, 2).Value   ' ZC rates
+       Next i
+       ' Flat extrapolation outside bounds
+       If maturity <= xs(1) Then ZcInterpolCubic = ys(1): Exit Function
+       If maturity >= xs(n) Then ZcInterpolCubic = ys(n): Exit Function
+       ' Natural cubic spline interpolation
+       ZcInterpolCubic = CubicSpline(xs, ys, maturity)
+   End Function
+
+
+
+ MV_Float_Det — market value of a floating-rate bond
+ Computes the deterministic market value of a floating-rate bond. The function loops over future steps,
+ checks whether a coupon falls due (per the frequency), retrieves surviving and defaulted notionals,
+ interpolates the ZC rate and discounts the flows.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a VBA function MV_Float_Det that computes the market value
+   > of a floating-rate bond deterministically. Inputs: time step t,
+   > total maturity, coupon frequency, redemption rate, recovery rate,
+   > coupon recovery flag, columns of surviving/defaulted notionals
+   > and coupon rates, nominal ZC curves, default probability table.
+   > Use ZcInterpolCubic for interpolation. The coupon combines the
+   > surviving notional plus the defaulted notional weighted by the
+   > recovery rate when the flag is active. Handle freq=0
+   > (zero-coupon).
+
+ Excerpt of the generated function:
+
+   ● ● ● VBA
+
+
+
+
+                                                                          29
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+   Function MV_Float_Det(ByVal t As Long, ByVal mat As Long, _
+                         ByVal freq As Double, ByVal redemp As Double, _
+                         ByVal recov As Double, ByVal recovCpn As Boolean, _
+                         ByRef nomSurv As Range, ByRef nomDef As Range, _
+                         ByRef cpnRate As Range, ByRef zcCurve As Range) As Double
+       Dim i As Long, coupons As Double, df As Double, vm As Double
+       Dim cpnSurv As Double, cpnDef As Double, activRecov As Double
+       activRecov = IIf(recovCpn, 1#, 0#)
+       coupons = 0#
+       For i = t + 1 To mat
+           If (i - t) Mod (12 / freq) = 0 Then      ' a coupon falls due
+               df = 1# / (1# + ZcInterpolCubic(t, i - t, zcCurve)) ^ ((i - t) / 12)
+               cpnSurv = nomSurv.Cells(i, 1).Value * cpnRate.Cells(i, 1).Value / freq
+               cpnDef = nomDef.Cells(i, 1).Value * cpnRate.Cells(i, 1).Value / freq
+               coupons = coupons + df * (cpnSurv + activRecov * recov * cpnDef)
+           End If
+       Next i
+       df = 1# / (1# + ZcInterpolCubic(t, mat - t, zcCurve)) ^ ((mat - t) / 12)
+       vm = coupons + df * redemp * (nomSurv.Cells(mat, 1).Value _
+            + recov * nomDef.Cells(mat, 1).Value)
+       MV_Float_Det = vm
+   End Function
+
+
+
+ YTM_Float_Det — yield to maturity
+ Computes a floating-rate bond's yield to maturity by bisection. The YTM is the single rate that, applied to
+ all future flows, equates their discounted sum to the previous step's book value. The search runs between
+ wide bounds with a fine tolerance.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a VBA function YTM_Float_Det that computes yield to
+   > maturity by bisection. The YTM equates the discounted sum of
+   > future flows to the previous book value (bv_prev). Same inputs as
+   > MV_Float_Det plus bv_prev. Bisection between -80% and +2000%, 100
+   > iterations max, tolerance 1e-8. Handle freq=0.
+
+ Excerpt of the generated function:
+
+   ● ● ● VBA
+
+
+   Function YTM_Float_Det(ByVal bv_prev As Double, ByVal t As Long, _
+                           ByVal mat As Long, ByVal freq As Double, _
+                           ByRef flows As Range) As Double
+       Dim lo As Double, hi As Double, mid As Double, val As Double
+       Dim iter As Long
+       lo = -0.8: hi = 20#             ' search bounds
+       For iter = 1 To 100
+           mid = (lo + hi) / 2#
+           val = SumDiscountedFlows(flows, t, mat, mid) - bv_prev
+           If Abs(val) < 0.00000001 Then Exit For    ' tolerance reached
+           If val > 0 Then lo = mid Else hi = mid    ' bisection
+       Next iter
+       YTM_Float_Det = mid
+   End Function
+
+
+
+
+                                                                          30
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ Other functions in the same module (CMS rates, forward CMS, forward floating rates, inflation-linked bond
+ valuation) were generated with the same approach: provide the mathematical specification, Claude Code
+ produces tested VBA.
+
+
+   Tip: For VBA, always provide the complete mathematical specification (formula, variables, conventions)
+   rather than a vague description. The more precise the spec, the more correct the code on first generation.
+
+
+
+   Companion resources: replicate this use case at home — the project folder (CLAUDE.md, ready-to-paste
+   prompts, dataset and instructions) is available for download: Google Drive folder. The pack projects the
+   market value of a fixed-rate bond over 480 monthly steps from a projected risk-free curve, with two
+   exercises: a VBA function in Excel, and a small Streamlit app — a preview of the internal tools of chapter 8.
+
+
+
+ Use case 9 — Modeling dynamic lapses
+
+   Situation: Dynamic lapse behavior is sometimes coded depending on the spread difference between the
+   rate credited on the contract and a market reference rate. When market rates rise and the crediting rate does
+   not follow, surrenders accelerate. It sits at the heart of reserve adequacy and cash flow testing, and it is hard
+   to calibrate. Actuaries spend a lot of time on it.
+
+ What Claude Code will design: a module implementing the dynamic lapse law (as a function of the
+ credited-vs-market spread), calibrating it on observed history, and backtesting the calibration.
+
+ The dynamic lapse rate is typically modeled as a capped function of the gap between the rate
+ policyholders expect and the credited rate:
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python module dynamic_lapse.py that:
+   > 1. Implements a parametric dynamic lapse law: the dynamic lapse
+   >    rate is a capped function (sigmoid or regulatory-style step
+   >    function) of the spread between the policyholder's expected
+   >    rate and the credited rate. Parameters: floor, cap,
+   >    thresholds, slope. Provide both forms (step and sigmoid).
+   > 2. Calibrates the parameters on observed history (CSV file with
+   >    rate spread and observed lapse rate) by least squares.
+   > 3. Allows backtesting: compare predicted vs observed lapses on a
+   >    holdout period, with error metrics and a predicted-vs-actual
+   >    chart.
+   > Outputs: calibrated parameters, plots of the calibrated law and
+   > the backtest, a calibration quality report.
+
+
+ Expected inputs:
+     • Observed history (rate spread, observed lapse rate)
+
+
+
+                                                                          31
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ Expected outputs:
+     • Calibrated dynamic lapse law, charts, backtesting report
+
+
+ Use case 10 — Stochastic reserves — scenario pipeline and CTE
+
+   Situation: Under principle-based reserving (VM-20), the stochastic reserve is computed from liability cash
+   flows projected over a full set of economic scenarios, discounted, and summarized by a conditional tail
+   expectation (CTE 70). It is the central calculation of modern US life valuation.
+
+ What Claude Code will design: a pipeline that reads projected liability cash flows across all stochastic
+ scenarios, discounts them along each path, computes the scenario reserve distribution and the CTE
+ metric, with convergence diagnostics.
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Build a Python stochastic reserve pipeline for a US life insurer.
+   > Inputs: projected liability cash flows (parquet file, dimensions
+   > scenario x time step x flow type: benefits, premiums, expenses),
+   > and the path-wise discount rates from the scenario set.
+   > The pipeline must:
+   > 1. Discount each scenario's net cash flows along its own path.
+   > 2. Build the distribution of scenario present values (GPVAD-style
+   >    greatest PV of accumulated deficiencies if provided, else PV
+   >    of net flows).
+   > 3. Compute CTE 65, CTE 70 and CTE 90 of the distribution, and the
+   >    corresponding stochastic reserve.
+   > 4. Produce a breakdown of the reserve by flow type and by
+   >    projection year.
+   > 5. Check Monte Carlo convergence (CTE vs number of scenarios) and
+   >    flag if the scenario count is insufficient.
+   > Outputs: the CTE metrics, breakdown tables, convergence charts,
+   > and an Excel export. Add consistency checks (components sum to
+   > the total).
+
+
+ Expected inputs:
+     • Projected liability cash flows (scenarios x time steps x flow type), path-wise discount rates
+
+ Expected outputs:
+     • CTE 65/70/90 metrics and the stochastic reserve, breakdowns and convergence diagnostics
+
+
+
+
+                                                                          32
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ Use case 11 — Modeling a GMDB floor guarantee
+
+   Situation: The guaranteed minimum death benefit on variable annuities promises a floor (often total
+   premiums paid) even when the account value has fallen. The risk is asymmetric: the cost depends on the
+   gap between the account value and the guaranteed floor. This calculation is usually coded directly in the
+   projection software; a standalone replica remains useful for validation, sensitivity testing and training.
+
+ What Claude Code will design: a tool that projects the guarantee cost under market scenarios: for each
+ scenario and time step, it compares the account value to the guaranteed floor and computes the expected
+ cost weighted by the probability of death.
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python module gmdb_guarantee.py that projects the cost
+   > of a guaranteed minimum death benefit on variable annuity
+   > contracts.
+   > Inputs: initial account value, guaranteed floor (e.g. total
+   > premiums paid), mortality table (death rates by age), and ESG
+   > scenarios of separate account returns.
+   > For each scenario and each time step:
+   > - project the account value with the scenario return,
+   > - compute the guarantee cost at death = max(0, floor - account
+   >   value),
+   > - weight by the probability of death over the period,
+   > - accumulate and discount the cost over the horizon.
+   > The guarantee cost is the discounted average across scenarios.
+   > Outputs: expected guarantee cost, its distribution across
+   > scenarios, a cost-by-year chart, and a sensitivity analysis to
+   > the floor level and to fund volatility.
+
+
+ Expected inputs:
+     • Initial account value, guaranteed floor, mortality table, fund return scenarios
+
+ Expected outputs:
+     • Expected guarantee cost, distribution, cost by year, sensitivities
+
+
+ Use case 12 — Automatic technical documentation of models
+
+   Situation: Every actuarial model must ship with technical documentation: specifications, algorithm
+   descriptions, assumptions, formulas, limitations. Auditors, state examiners and internal validation (per ASOP
+   41 and ASOP 56) require it. Yet documentation usually lags the code, incomplete or stale. It is one of the
+   great year-end pains.
+
+ What Claude Code will design: complete technical documentation generated from the model's code, in
+ Markdown, including LaTeX formulas and parameter descriptions.
+
+
+
+
+                                                                          33
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Read the full code of the reserving model in ./models and
+   > generate the complete technical documentation in Markdown. For
+   > each module and each function:
+   > - a description of its business role,
+   > - input and output parameters with types and units,
+   > - the mathematical formulas used, written in LaTeX,
+   > - implicit assumptions and limitations,
+   > - dependencies on other modules.
+   > Structure the document with a table of contents, one section per
+   > module, and a transverse section describing the calculation
+   > chain. Write in a style suited to a technical note intended for
+   > auditors and internal model validation.
+
+
+ Expected inputs:
+     • The model's code folder
+
+ Expected outputs:
+     • Complete Markdown technical documentation, LaTeX formulas included, ready for review
+
+
+ 5.4 Risk Division — Risk Measurement and Capital
+ The risk measurement team quantifies risks and computes capital requirements.
+
+
+ Use case 13 — NAIC risk-based capital calculator
+
+   Situation: The RBC calculation is heavy and recurring: compute each risk component (C-0 affiliates, C-1
+   asset risk, C-2 insurance risk, C-3 interest rate and market risk, C-4 business risk), then combine them
+   through the covariance formula. Teams spend days checking large Excel files, with high error risk.
+
+ What Claude Code will design: an RBC calculator that takes the exposures and factors by component,
+ applies the covariance formula, and produces the authorized control level RBC and the RBC ratio with a
+ visual decomposition.
+
+
+
+
+                                                                          34
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Build a life RBC calculator in Python.
+   > Input: an Excel file with exposures and factors by component:
+   > C-0 (affiliates), C-1o (bonds by NAIC class, mortgages, other
+   > invested assets), C-1cs (common stock), C-2 (net amount at risk
+   > by product), C-3a (interest rate risk), C-3b (health credit
+   > risk), C-4a and C-4b (business risk).
+   > The calculator must:
+   > 1. Compute each component's requirement (exposure x factor,
+   >    with size adjustments where applicable).
+   > 2. Combine them with the covariance formula: C0 + C4a +
+   >    sqrt((C1o+C3a)^2 + C1cs^2 + C2^2 + C3b^2 + C4b^2).
+   > 3. Derive authorized control level RBC and the RBC ratio (total
+   >    adjusted capital / ACL).
+   > 4. Flag the regulatory action levels (company action, regulatory
+   >    action, authorized control, mandatory control).
+   > Outputs: RBC by component, the covariance benefit, a waterfall
+   > chart of the decomposition, and an Excel export with the factor
+   > tables hard-coded and commented with their source.
+
+
+ Expected inputs:
+     • Exposures by component and total adjusted capital
+
+ Expected outputs:
+     • RBC by component, ACL RBC, RBC ratio, action-level flags, waterfall chart, Excel export
+
+
+   Note: The NAIC RBC spreadsheet does that as well. The value here lies in automation and integration with
+   your own data pipeline.
+
+
+
+   Companion resources: replicate this use case at home — the project folder (CLAUDE.md, ready-to-paste
+   prompts, dataset and instructions) is available for download: Google Drive folder. The pack's synthetic
+   exposure file comes with a hand-checked reference table (RBC by component, covariance benefit, ACL and
+   ratio), so you can verify every figure of your run.
+
+
+
+ Use case 14 — Automating ORSA stress tests
+
+   Situation: Under ORSA, the insurer projects its solvency over 3 to 5 years under several stress scenarios:
+   rate shock, equity crash, mortality deterioration, mass lapse, combinations. Each scenario requires a full
+   balance sheet projection. Automation is essential to meet the filing calendar.
+
+ What Claude Code will design: an orchestrator that, from the initial balance sheet and a stress catalog,
+ projects the capital ratio over the ORSA horizon for each scenario and produces a comparative report.
+
+
+
+
+                                                                          35
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python ORSA stress test orchestrator. It takes the
+   > initial balance sheet (capital, RBC, reserves) and a stress
+   > scenario catalog defined in a YAML configuration file:
+   > - baseline scenario,
+   > - rates -100 bp,
+   > - equities -40%,
+   > - lapses x2,
+   > - combined rates + equities,
+   > - a deteriorated mortality scenario.
+   > For each scenario, project over 5 years: available capital, the
+   > RBC requirement, and the RBC ratio. Use parametrizable
+   > projection functions (I will provide the business logic, or
+   > start from simple documented assumptions).
+   > Outputs: a table of RBC ratios by scenario and by year, a chart
+   > of ratio trajectories, identification of scenarios where the
+   > ratio falls below the company action level, and a PDF summary
+   > report. The scenario catalog must be easily extensible.
+
+
+ Expected inputs:
+     • Initial balance sheet, stress scenario catalog (configuration file)
+
+ Expected outputs:
+     • Capital ratio trajectories by scenario, breach alerts, summary report
+
+
+   Note: As mentioned earlier, whatever is not specified will be filled out by Claude Code. For example, how the
+   5-year projections are performed is not spelled out in the snippet shared.
+
+
+
+ 5.5 Model Validation and Actuarial Oversight
+ Model validation — whether housed in a dedicated team, with the appointed actuary, or under an ASOP
+ 56 model governance framework — gives an independent opinion on models, methodologies and results.
+ It is a control and second-opinion role.
+
+
+ Use case 15 — Validation tool by independent model replication
+
+   Situation: To validate a calculation, a powerful approach is to replicate the model independently from its
+   specification, then compare the replica's results to the official model's. Every gap flags either a bug or an
+   ambiguous specification. Done by hand it takes weeks — it is exactly the kind of task where Claude Code
+   excels.
+
+ What Claude Code will design: a validation tool that implements an independent version of the model
+ from the functional specification, runs both versions on the same test data, and produces a detailed gap
+ report.
+
+
+
+
+                                                                          36
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > I am performing model validation and I must review a reserve
+   > calculation feature. The functional specification is in
+   > ./specs/reserve_spec.docx and the official model results are in
+   > ./results/official_model.parquet.
+   > 1. Read the specification and implement, fully independently, a
+   >    reference version of the calculation in Python (do not look
+   >    at the official model's code, only the specification).
+   > 2. Run your reference version on the same model points as the
+   >    official model.
+   > 3. Compare results line by line: reserve per contract, per
+   >    product, and in total. Compute absolute and relative gaps.
+   > 4. Produce a validation report: list of gaps above a threshold,
+   >    analysis of likely causes (rounding, divergent assumption,
+   >    unhandled edge case), and a conclusion on compliance.
+   > Clearly flag any ambiguous points in the specification that
+   > forced you to make an assumption.
+
+
+ Expected inputs:
+     • The functional specification and the official model's results
+
+ Expected outputs:
+     • An independent replication of the model, a line-by-line gap report
+     • The list of specification ambiguities detected
+
+
+   Note: This dual-implementation approach is one of the strongest ways to validate a model: two independent
+   implementations that converge give high assurance; when they diverge, the gap points precisely to the
+   problem.
+
+
+
+ Use case 16 — Critical review of a methodology memo
+
+   Situation: Validation re-reads the methodology memos produced by modeling teams in order to opine. That
+   critical review — hunting for unjustified assumptions, inconsistencies and unhandled cases — is
+   time-consuming and demands sustained attention.
+
+ What Claude Code will design: a structured critical review of a methodology memo, identifying
+ strengths, weaknesses, assumptions to challenge and questions to put to the team.
+
+
+
+
+                                                                          37
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Act as a model validation actuary reviewing a methodology memo.
+   > The memo is in ./notes/methodology_memo.docx.
+   > Produce a structured critical review:
+   > - a summary of the proposed methodology in a few lines,
+   > - the list of key assumptions and an assessment of their
+   >   justification,
+   > - internal inconsistencies or contradictions spotted,
+   > - edge cases or situations not handled by the methodology,
+   > - potential non-compliance with VM-20,
+   > - a list of precise questions for the modeling team.
+   > Be rigorous and factual: cite the passages concerned. Do not
+   > paraphrase the memo — challenge it.
+
+
+ Expected outputs:
+     • A structured critical review: assumptions, inconsistencies, unhandled cases, questions for the team
+
+
+ 5.6 Valuation and Financial Reporting
+ The valuation actuary computes reserves at every close and explains their movements.
+
+
+ Use case 17 — Statutory reserve calculation at the close
+
+   Situation: At each close, the valuation actuary computes statutory reserves (net premium reserves,
+   deficiency reserves, incidental reserves...) by running through the entire portfolio contract by contract.
+
+ What Claude Code will design: a reserve calculator that reads the portfolio, computes reserves per
+ contract, aggregates them, and reconciles against the prior inventory.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Build a statutory reserve calculator in Python. It reads a
+   > portfolio of 500,000 contracts (parquet file). For each
+   > contract, compute the prospective net premium reserve with the
+   > prescribed mortality table (2017 CSO) and the contract's
+   > statutory valuation rate. Then compute, at portfolio level, the
+   > deficiency reserve where gross premiums are below net premiums,
+   > and the aggregate incidental reserves.
+   > Outputs: reserves aggregated by product, a contract-level detail
+   > file, and a reconciliation with the prior quarter's inventory
+   > (movement explained: new business effect, terminations effect,
+   > aging/interest effect).
+   > Optimize to process 500k contracts in reasonable time
+   > (vectorization).
+
+
+ Expected inputs:
+     • Contract portfolio, prescribed tables, prior inventory
+
+ Expected outputs:
+     • Reserves by product, contract-level detail, reconciliation with explained movement
+
+
+
+                                                                          38
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+   Note: Prospective net premium reserve and other reserve calculation routines are assumed to have been
+   articulated in a different area of the project.
+
+
+
+ Use case 18 — Movement analysis and close controls
+
+   Situation: At every close, the valuation actuary must explain the reserve movement between two valuations
+   (roll-forward) and run a battery of consistency checks before locking the numbers. These controls are often
+   manual and repeated identically every quarter.
+
+ What Claude Code will design: a tool that decomposes the reserve movement into effects (new
+ business, benefits, interest, assumption changes) and automatically runs the close controls.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python roll-forward and close control tool.
+   > Inputs: the prior quarter and current quarter inventories (two
+   > parquet files, contract-level).
+   > 1. Decompose the reserve movement between the two closes into
+   >    effects: new business, terminations (lapses/deaths/
+   >    maturities), interest accretion, assumption changes, model
+   >    effect. The effects must sum back to the total movement.
+   > 2. Run consistency checks: no negative reserves, no duplicate
+   >    contracts, consistency between contract counts and flows,
+   >    movement by product inside plausible bounds.
+   > 3. Produce a close report with the roll-forward table, the list
+   >    of detected anomalies, and a green/red flag per control.
+
+
+ Expected outputs:
+     • A decomposed movement analysis, automated close controls, a summary report
+
+
+ 5.7 Product Development
+ The product team designs and manages savings, retirement and protection products. It assesses
+ profitability before launch and tracks performance over time.
+
+
+ Use case 19 — New product profitability analysis
+
+   Situation: Before launching a savings or protection product, the product team must assess its profitability:
+   project cash flows over the life of the contract and compute the present value of profits, the internal rate of
+   return on capital, and the sensitivity of those metrics to key assumptions.
+
+ What Claude Code will design: a pricing tool that projects a product's cash flows and computes its
+ profitability metrics, with sensitivity analysis.
+
+
+
+
+                                                                          39
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python pricing tool for a fixed deferred annuity.
+   > Inputs: mortality table, credited rate strategy, expenses and
+   > loads, lapse assumptions, investment yield assumption, average
+   > premium.
+   > Project the cash flows over the full contract horizon and
+   > compute:
+   > - the value of new business (present value of future profits),
+   > - the profit margin (PVFP / PV of premiums),
+   > - the IRR on required capital and the break-even year,
+   > - the initial capital strain and its cost.
+   > Add a sensitivity analysis: lapses +/- 20%, yield +/- 50 bp,
+   > expenses +/- 10%. Produce a summary table and charts (profit
+   > profile over time, tornado chart of sensitivities).
+
+
+ Expected outputs:
+     • New business value, margin, IRR, break-even, sensitivity analysis
+
+
+   Note: As mentioned above, Claude Code will fill out the necessary information not provided. Here, the
+   economic scenario under which the cash flows shall be projected is not articulated: a likely level scenario
+   would be used.
+
+
+
+ 5.8 Corporate Finance and Investments
+ The finance division tracks investment portfolio performance, produces financial reporting and polices
+ investment limits.
+
+
+ Use case 20 — Performance reporting and attribution
+
+   Situation: The finance division produces recurring reports: portfolio performance, attribution by asset class,
+   realized and unrealized gains tracking, investment limit compliance. These reports are often assembled by
+   hand from several sources — slow and error-prone.
+
+ What Claude Code will design: a financial reporting generator that computes performance and
+ attribution, checks limits and produces a formatted report.
+
+
+
+
+                                                                          40
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a monthly financial reporting generator in Python. It
+   > reads portfolio positions (Excel) and market prices (CSV) and
+   > computes:
+   > - overall and per-asset-class performance for the month and
+   >   year-to-date,
+   > - performance attribution (each class's contribution to total
+   >   performance),
+   > - realized and unrealized gains and losses,
+   > - investment limit compliance (by class, by issuer, by rating)
+   >   with alerts on breaches.
+   > Produce a PDF report with charts: cumulative performance,
+   > portfolio breakdown, top and bottom positions.
+
+
+ Expected outputs:
+     • Performance and attribution by class, gains/losses, limit checks, PDF report
+
+
+ 5.9 Health and Group Benefits
+ In health and group benefits, the actuary prices coverages (medical, dental, disability, group life), monitors
+ experience and reserves disabled-life claims. The problems mix frequency, duration and severity.
+
+
+ Use case 21 — Health pricing and loss ratio monitoring
+
+   Situation: In individual health, the actuary prices coverages from observed medical consumption and tracks
+   the loss ratio by population. Pricing must reflect family composition, age, plan design, and trend by service
+   category.
+
+ What Claude Code will design: a health pricing model by service category and a loss ratio monitoring
+ dashboard by population.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Build an individual health pricing and monitoring model.
+   > Inputs: medical claims per member by service category
+   > (inpatient, outpatient, professional, pharmacy), with age,
+   > family status and plan design.
+   > 1. Compute average claim cost by category and age band.
+   > 2. Build a net premium by profile (age, family composition) by
+   >    aggregating categories, then apply loads and the target
+   >    margin.
+   > 3. Track the loss ratio by population and by category, and
+   >    detect categories drifting (12-month trend).
+   > Produce a monitoring dashboard and a pricing report.
+
+
+ Expected outputs:
+     • Net premium by profile and category, loss ratio dashboard, drift detection
+
+
+
+
+                                                                          41
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+   Note: As mentioned above, Claude Code will fill out the necessary information not provided. Portfolio
+   composition trends and other elements are not included here.
+
+
+
+ Use case 22 — Disabled-life reserves for disability claims
+
+   Situation: In group disability, the insurer pays benefits for as long as the claimant remains disabled.
+   Reserving relies on claim termination rates (continuance tables) from prescribed tables or company
+   experience. It is a specific calculation many actuaries meet without a dedicated tool.
+
+ What Claude Code will design: a disabled-life reserve calculator built on continuance tables, with
+ projected benefit flows.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python disabled-life reserve calculator for group
+   > long-term disability. Inputs: the portfolio of open claims (age
+   > at disability, duration since disability, monthly benefit,
+   > benefit period, elimination period) and the continuance tables
+   > (probability of remaining disabled by age and duration). Use
+   > the statutory interest rate for discounting.
+   > For each claim, project future benefit payments weighted by the
+   > continuance probabilities, then discount to get the reserve.
+   > Handle transitions (recovery, death, retirement age limit) and
+   > benefit offsets if provided.
+   > Outputs: reserve per claim and aggregated, projected benefit
+   > flows, and a sensitivity analysis to the termination rates.
+
+
+ Expected inputs:
+     • Open claims portfolio, continuance tables, statutory interest rate
+
+ Expected outputs:
+     • Reserve per claim and in aggregate, projected flows, sensitivity to termination rates
+
+
+ Use case 23 — Pandemic experience monitoring —
+ data-visualization storytelling
+
+   Situation: A data-visualization challenge run by the Institut des Actuaires, the French actuarial society,
+   during the COVID-19 epidemic: make public hospital data speak — admissions, ICU, vaccination, economic
+   impact — and tell a coherent story to management and non-specialist colleagues. Mortality data is
+   deliberately out of scope. The exercise captures a real part of the job: pandemic experience monitoring and
+   executive communication.
+
+ What Claude Code will design: an end-to-end analysis of three public datasets (hospital, vaccination,
+ economic), the exploratory work, a set of publication-ready visualizations with a clear message per chart,
+ and a 10-15 page PDF deck that follows a narrative thread: the arrival of the pandemic, the successive
+ waves, regional disparities, the effect of vaccination on hospitalizations, the economic cost, and the
+ lessons for pandemic risk management.
+
+
+
+                                                                          42
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Read the CLAUDE.md file at the root of the project. You are an
+   > actuary's assistant, given a data visualization challenge on
+   > COVID-19 hospital data (folders 1_hospitalieres, 2_vaccins,
+   > 3_economiques in data/). Run through all the steps without
+   > stopping:
+   > 1. Explore the 3 folders, identify files, columns and periods
+   > 2. Load and clean the data
+   > 3. Build a complete actuarial analysis with a clear narrative:
+   >    the pandemic's arrival and successive waves, geographic
+   >    disparities, the effect of vaccination on hospitalizations
+   >    and ICU, the economic impact, and the lessons for pandemic
+   >    risk management
+   > 4. Produce the visualizations (high resolution, output/figures/)
+   > 5. Assemble a professional 10-15 page PDF (output/presentation.pdf)
+   > 6. Generate the requirements.txt
+   > Mortality data is NOT in scope. Every chart carries one clear
+   > message, an explicit title and annotations. Sober palette:
+   > blues, grays, one red/orange accent.
+
+
+ Expected inputs:
+     • Three public datasets (hospital, vaccination, economic) — French open data, file names unchanged
+
+ Expected outputs:
+     • Cleaned data, reusable analysis scripts, publication-ready charts, a 10-15 page narrative PDF deck
+
+
+   Companion resources: replicate this use case at home — the project folder (CLAUDE.md, ready-to-paste
+   prompts, dataset and instructions) is available for download: Google Drive folder. This is the recommended
+   first project of the guide: real public data, no confidentiality constraint, a visible deliverable in one session,
+   and every skill of chapters 3 and 4 exercised at once.
+
+
+
+
+                                                                          43
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.

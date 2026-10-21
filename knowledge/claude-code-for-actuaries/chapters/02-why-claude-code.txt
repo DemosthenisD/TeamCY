@@ -1,0 +1,56 @@
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ CHAPTER 2
+
+ Why Claude Code, and Not Just Claude
+ Claude is an artificial intelligence model developed by Anthropic, able to understand natural language,
+ reason, and generate text as well as code. Most actuaries know it through the chat interface: you ask a
+ question, paste some code, get an answer. Claude Code is different. It is an agent, built on the same
+ model, that works directly inside your working environment.
+
+ Three features make the difference:
+
+
+ Autonomy
+ Claude Code does not stop at writing code. It executes it, reads the error messages in the console,
+ understands what went wrong, and fixes itself until the script works. This feedback loop (write, test,
+ correct) happens without you copy-pasting errors manually.
+
+
+ Local access to your files
+ Claude Code can read an entire model folder: multiple Python, R or VBA files, and understand the
+ dependencies between them before proposing a change. The web chat only sees what you paste into the
+ conversation. For an actuarial model spread across dozens of files, that difference is decisive.
+
+
+ End-to-end execution
+ Claude Code can create files, run calculations, install libraries, generate charts and produce reports, all in
+ a single session. You go from a request in plain English to a concrete deliverable without leaving your
+ workspace.
+
+
+   Note: In short: the web chat answers questions. Claude Code completes tasks. For an actuary who works
+   with models spread across many files and needs executable results, that changes everything.
+
+
+
+ 2.1 The Three Levels of AI Use
+ In practice, actuaries adopt AI in three stages. Knowing where you stand helps you see where you are
+ going.
+
+     • Level 1 — Code generation. “Write a Python function to calculate expected deaths.” You get code,
+     you paste it, you test it. Useful but limited: the AI knows nothing about your project.
+     • Level 2 — Project understanding. Claude Code reads your files, understands your existing scripts,
+     modifies and runs them. It works with context. This is where most of this guide operates.
+     • Level 3 — Workflow automation. Read the data, validate it, run the analysis, generate the charts,
+     produce the report: one instruction executes a whole reproducible pipeline. Chapter 11 shows a
+     complete example.
+
+
+
+
+                                                                           8
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.

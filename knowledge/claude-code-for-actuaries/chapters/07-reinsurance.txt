@@ -1,0 +1,125 @@
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ CHAPTER 7
+
+ Reinsurance
+ Reinsurance combines extreme risk modeling, structure optimization, reserve calculations and regulatory
+ compliance. Claude Code helps on each of these fronts.
+
+
+ Use case 30 — Pricing and modeling extreme risks
+
+   Situation: The reinsurer assesses extreme risks (natural catastrophes, pandemics) with probabilistic
+   models. Pricing an excess-of-loss treaty requires modeling claim experience beyond a retention, with
+   heavy-tailed distributions.
+
+ What Claude Code will design: a pricing tool for an excess-of-loss treaty, with severity distribution fitting
+ and net premium calculation by simulation.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Build a pricing tool for an excess-of-loss (XL) treaty in
+   > Python. Inputs: a history of individual claims, the retention
+   > (attachment point) and the limit of the treaty.
+   > 1. Fit severity distributions suited to extreme risks
+   >    (generalized Pareto, lognormal) by maximum likelihood, and
+   >    compare their goodness of fit (QQ-plots, tests).
+   > 2. Model the frequency of claims exceeding the retention
+   >    (Poisson).
+   > 3. Compute the treaty's net premium by Monte Carlo simulation
+   >    (100,000 draws): for each simulated year, draw the number of
+   >    claims and their amounts, apply retention and limit,
+   >    accumulate the reinsurer's loss.
+   > 4. Compute the burning cost (the historical average annual loss
+   >    to the layer), the net premium, the standard deviation and
+   >    the loss quantiles (VaR, TVaR).
+   > Outputs: a pricing sheet with fitted parameters, loss
+   > distribution charts, and the key indicators. Comment in
+   > English.
+
+
+ Expected outputs:
+     • Fitted severity distributions, net premium, burning cost, VaR/TVaR, pricing sheet
+
+
+ Use case 31 — Optimizing the reinsurance program
+
+   Situation: The company must optimize its reinsurance and retrocession program, trading off the cost of
+   cover against the reduction in risk and in required capital. Many structures must be tested and their impact
+   measured.
+
+ What Claude Code will design: an optimizer that tests a set of structures (quota share, excess of loss,
+ stop-loss, combinations) and identifies the optimal structure in terms of net cost and capital relief.
+
+
+
+
+                                                                          50
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Build a reinsurance program optimizer in Python. It tests a set
+   > of structures: quota share (5% to 40%), excess of loss
+   > (retention 1M to 5M, limit 5M to 20M), stop-loss, and
+   > combinations. For each structure, from a simulated loss
+   > distribution, compute:
+   > - the net cost of reinsurance (ceded premiums minus expected
+   >   recoveries),
+   > - the reduction in loss volatility (standard deviation, TVaR),
+   > - the estimated reduction in required capital (RBC impact),
+   > - the impact on expected net income.
+   > Identify the frontier of efficient structures (minimal cost for
+   > a target risk level) and recommend a structure. Outputs: a
+   > comparative table, the efficient frontier chart, and a reasoned
+   > recommendation. Comment in English.
+
+
+ Expected outputs:
+     • Structure comparison, cost/risk efficient frontier, reasoned recommendation
+
+
+ Use case 32 — Ceded reserves and regulatory reporting
+
+   Situation: The reinsurance actuary estimates reserves for assumed and ceded business and produces the
+   indicators required by regulators — including Schedule F, which tracks reinsurance balances and
+   counterparty exposure in the NAIC annual statement for P&C companies.
+
+ What Claude Code will design: a tool that computes reinsurance reserves by treaty and generates the
+ expected regulatory indicators.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python tool that, from the treaty portfolio and ceded
+   > claim experience, computes reinsurance reserves (ceded case
+   > reserves, ceded IBNR) by treaty and by accident year. Then
+   > generate the expected regulatory indicators: ceded balances by
+   > reinsurer for Schedule F, provisions for reinsurance
+   > (overdue/collateral logic simplified and documented), and the
+   > net-to-gross reconciliation. Produce a summary table and an
+   > export in the format expected by reporting. Comment in
+   > English.
+
+
+ Expected outputs:
+     • Reinsurance reserves by treaty, Schedule F support, net-to-gross reconciliation, reporting export
+
+
+
+
+                                                                          51
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.

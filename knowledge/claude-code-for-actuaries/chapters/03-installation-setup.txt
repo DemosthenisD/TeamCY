@@ -1,0 +1,329 @@
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ CHAPTER 3
+
+ Installation and Setup
+
+ 3.1 Prerequisites
+     • Subscription: an active Claude subscription (Claude Pro, about $20/month, is enough to start; no
+     API key required).
+     • A computer: Mac, Windows or Linux, able to run the Claude Desktop app.
+     • Internet: a stable connection.
+     • Skills: none beyond your actuarial work. No terminal, no package manager, no system
+     administration.
+
+
+   Note: There are numerous ways to access Claude Code, with pricing linked to fixed-cost plans with usage
+   limits or variable-cost plans (API access) without limits. The fixed-cost subscription is the simplest way to
+   start; API access suits intensive or automated workloads.
+
+
+
+ 3.2 Installation in Three Steps
+ Step 1 — Download the Claude Desktop app. Go to claude.ai/download and install the application for
+ your operating system (Mac, Windows or Linux).
+
+ Step 2 — Create an account and subscribe. Sign up with your email address and subscribe to Claude
+ Pro ($20/month).
+
+ Step 3 — Start working. Open Claude Code from the app, point it to your project folder (the working
+ directory), and type your first instruction. That's it.
+
+
+   Note: A second installation path exists: a command-line install through npm and Node.js, aimed at
+   developers. It is not needed here: the desktop app ships with everything included, which matters in corporate
+   environments where installing developer tooling is restricted.
+
+
+
+ 3.3 Security Settings Before You Start
+ Before pointing Claude Code at anything, two reflexes. The first is scoping: give it access to the project
+ folder only, never to a drive or folder tree holding documents you do not intend to share with the tool —
+ the trust dialog shown in section 3.7 enforces exactly this. The second is deciding what may be done with
+ your conversations. On individual plans, one setting controls whether your chats and coding sessions can
+ be used to train Anthropic's models. Here is how to review it and turn it off:
+
+ 1. Open the account menu at the bottom left of the app and click Settings.
+
+
+
+
+                                                                           9
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+                                    Step 1 — the account menu, bottom left, opens the Settings.
+
+ 2. Go to the Privacy section. Under “How we use your data”, the policy states what the setting covers.
+
+
+
+
+             Step 2 — the Privacy section spells out how your data is used; the training setting is under Preferences.
+
+ 3. Turn off “Help improve our AI models”. From that point on, your conversations and coding sessions are
+ not used for model training.
+
+
+
+
+                                                                          10
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+      Step 3 — “Help improve our AI models” turned off: conversations and coding sessions are no longer used for training.
+
+ In a corporate setting, these account-level settings complement — and never replace — the review by
+ your IT department. Chapter 10 comes back to this.
+
+ A first test to check that everything works:
+
+   ● ● ● claude
+
+
+   > Create a file hello_actuary.py that builds a mortality table
+   > from a Gompertz law (B=0.00003, c=1.1), computes the associated
+   > life expectancy at age 40, and prints the result. Run it.
+
+ When you are ready for a first real project, start with the pandemic data-visualization use case in chapter
+ 5.9: it ships with a complete downloadable project folder (data, CLAUDE.md, prompt) and makes an ideal
+ first end-to-end run.
+
+
+ 3.4 A Tour of the Interface
+ Five elements are worth knowing before your first real project:
+
+     • The chat zone: where you converse with the agent in natural language. Instructions, follow-ups,
+     corrections: everything goes through here.
+     • Models: several models are available, from the fastest and cheapest to the most capable. As a rule
+     of thumb: use a mid-tier model for most actuarial work, and reserve the top tier for complex
+     architecture or subtle reasoning. Model names evolve; the fast/balanced/powerful tiering remains.
+     • Effort level: controls how deeply the model thinks before answering. Raise it for complex modeling
+     questions, keep it standard for routine tasks.
+     • Context window: how much of your project Claude can hold in mind at once. Large models read
+     hundreds of pages; structure your project so the relevant files are easy to find.
+
+
+
+
+                                                                          11
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+     • Working directory: the project folder you give Claude Code access to. It can read every file in it —
+     which is exactly what makes it useful.
+
+
+
+
+        The effort level, in the model menu: higher effort means more thorough responses, at the price of time and usage.
+
+
+
+
+    The context panel (right) shows how much of the window the session has used; the Usage panel tracks your session and
+                                                        weekly limits.
+
+
+
+
+                                                                          12
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+   Tip: Recommendation: start every project by creating a dedicated folder (data, specs, outputs) and give
+   Claude Code that folder as its working directory. Clean structure in, clean results out.
+
+
+
+ 3.5 The CLAUDE.md File
+ This is the most important file of your setup. Claude Code reads it automatically at the start of every
+ session. It contains your project context, your technical stack, your conventions and your business rules.
+ Well written, it saves you from repeating the same instructions and dramatically improves the quality of
+ the results.
+
+ Think of it as the briefing document you would hand a new analyst joining your team: where the data lives,
+ which tools to use, which rules to follow, what never to do. A complete CLAUDE.md template for actuaries
+ is provided in the appendix (chapter 12).
+
+
+   Tip: Keep your CLAUDE.md under 200 lines. Claude Code re-reads it constantly; a bloated file dilutes the
+   signal. Treat it as an index that points to detailed files, not as a manual.
+
+
+
+ 3.6 Connecting to Your Data with MCP
+ MCP (Model Context Protocol) is a standard that lets Claude Code plug directly into your data sources
+ instead of going through manual exports. Concretely, it is a connector: once configured, Claude Code can
+ query a local SQL database, an Excel workbook, a document repository or an internal API, at the source.
+
+ Instead of hand-exporting a CSV of your portfolio to give to Claude Code, you configure the connector
+ once, and Claude Code queries the data directly. For an actuary, this means a dashboard or a monitoring
+ tool that reads live data, with no intermediate manipulation.
+
+
+   Tip: Start simple: a well-written CLAUDE.md already delivers 80% of the value. MCP configuration comes
+   later, when you want to industrialize data access.
+
+
+
+ 3.7 Running a Companion Pack End to End
+ Every companion pack of this guide (the table in chapter 1) runs with the same routine. This walkthrough
+ uses the bond valuation library pack as the example; the steps are identical for the other nine — and for
+ your own projects, since a pack is nothing more than a ready-made working folder.
+
+ Step 1 — Create the working folder on your computer
+ Download the pack from its Drive link into a dedicated folder on your machine. It already holds everything
+ the session needs: the data in data/, the CLAUDE.md, and the PROMPT.md. For a project of your own,
+ this is the step where you gather every resource that is useful and relevant: documentation, data extracts,
+ existing code.
+
+
+
+
+                                                                          13
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+                  The working folder: data/, CLAUDE.md and PROMPT.md — everything Claude Code will need.
+
+ Step 2 — Create or adapt the CLAUDE.md and PROMPT.md
+ The packs ship with both files ready to use. For your own projects there are two ways to produce them. If
+ you are starting out, describe your project to an AI assistant — Claude, ChatGPT or any other; in our
+ experience Claude gives the best results for this exercise — and ask it to generate the two files, then read
+ them critically and correct what needs correcting. Once you are more experienced, write them yourself,
+ starting from the CLAUDE.md template in chapter 12. Note that this is the only step of the routine that
+ happens in a chat interface rather than in Claude Code.
+
+ Step 3 — Open Claude Code and point it at the folder
+ In the Claude desktop app, switch to the Code side with the </> toggle at the top of the sidebar and click
+ New. At the bottom of the input bar, select This computer, then Choose…, then Open folder…, and pick
+ the pack's claude_project folder.
+
+
+
+
+                                                                          14
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+                The Code side of the Claude desktop app: the </> toggle (top left) and the folder selector (bottom).
+
+
+
+
+                               Open folder… lets you browse to the pack folder you just downloaded.
+
+ Claude Code then asks you to trust the workspace: it may read, write and execute files in that folder.
+ Check that the path is the folder you intend — and only that folder — and that you trust its content, then
+ click Trust workspace. This is the security boundary discussed at the start of this chapter: scope it
+ deliberately.
+
+
+
+                                                                          15
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+                              The trust prompt: Claude Code works only inside the folder you approve.
+
+ Step 4 — Pick the model and the effort level
+ The selector at the bottom right of the input bar sets the model and the effort level for the session. The
+ trade-off is capability against speed and cost: the largest models reason deepest on long, ambiguous
+ pipelines; lighter models are faster and cheaper and handle well-specified tasks very well; the effort
+ setting tunes how long the model thinks before it acts. There is no single right choice — it depends on the
+ task, and the right reflex is to experiment. For a first run of a pack, the defaults are fine.
+
+
+
+
+   Indicative positioning of the current Claude models — capability against cost and latency. Line-ups evolve; the trade-off and
+                                                        the tiering remain.
+
+
+
+                                                                          16
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+                             Model and effort are set per session, from the selector at the bottom right.
+
+ Step 5 — Run the prompt
+ Attach the PROMPT.md file to the input (or paste its content), type run these instructions please, and
+ send.
+
+
+
+
+                          The PROMPT.md attached, the instruction typed: the session is ready to launch.
+
+
+
+
+                                                                          17
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ Step 6 — Let Claude Code work
+ Claude Code reads the CLAUDE.md, works through the prompt's steps, and may ask you to authorize a
+ few actions along the way (running a command, installing a package). Review and approve them. When
+ the work is done it tells you, and every deliverable is in your working folder — also listed in the Outputs
+ panel on the right.
+
+
+
+
+                      The session at work: progress in the center, deliverables collected in the Outputs panel.
+
+ And back in the working folder on your computer, the deliverables are simply there: the generated code,
+ the output subfolder with the charts and reports, and the requirements.txt to reproduce the environment.
+
+
+
+
+             The working folder after the run: code, output and requirements.txt have been generated next to the data.
+
+
+
+
+                                                                          18
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.

@@ -1,0 +1,345 @@
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ CHAPTER 6
+
+ Property & Casualty
+ In property & casualty, Claude Code helps across the whole chain: pricing, reserving, profitability analysis,
+ reporting and compliance. This section covers the most concrete use cases.
+
+
+ 6.1 Pricing
+
+ Use case 24 — Auto pricing: GLM, machine learning and variable
+ selection
+
+   Situation: In personal auto, a hyper-competitive market, pricing is a major battleground. Generalized linear
+   models remain the standard because they are interpretable and accepted by state regulators in rate filings.
+   But machine learning models offer performance gains and can exploit more variables. Models use numerous
+   variables and go through a variable selection step.
+
+ What Claude Code will design: a complete pricing pipeline, from variable selection to the GLM /
+ machine learning comparison, with interpretability.
+
+
+
+
+                                                                          44
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Build a complete auto pricing pipeline in Python.
+   >
+   > DATA: a parquet file with 500,000 policies. Driver variables
+   > (age, years licensed, prior claims, credit-based insurance score
+   > where permitted, gender, marital status, territory, vehicle use)
+   > and vehicle variables (horsepower, vehicle age, make, rating
+   > group, fuel type, replacement value). Target variables: claim
+   > count and claim cost.
+   >
+   > STEP 1 - Preparation: cleaning, missing value treatment, rare
+   > modality grouping, continuous variable binning.
+   >
+   > STEP 2 - Exploratory analysis: variable distributions, claim
+   > experience (frequency and average cost) by modality of each
+   > rating variable, correlations, identification of the most
+   > discriminating variables. Produce charts and a summary of
+   > findings before modeling.
+   >
+   > STEP 3 - Variable selection: test several approaches (univariate
+   > analysis, tree-based importance, stepwise selection on the GLM)
+   > and propose a retained variable set, with justification.
+   >
+   > STEP 4 - GLM: a Poisson GLM for frequency, a Gamma GLM for
+   > average cost. Show relativities by variable and their
+   > significance.
+   >
+   > STEP 5 - Machine learning: train an XGBoost and a neural network
+   > on frequency and cost, with hyperparameter optimization.
+   >
+   > STEP 6 - Comparison: compare GLM and ML on suitable metrics
+   > (deviance, Gini, lift curves, double lift chart). Use SHAP to
+   > interpret the ML model and identify segments where the GLM
+   > under- or over-prices.
+   >
+   > STEP 7 - Delivery: a summary report with the charts, the
+   > segments to watch, and GLM adjustment recommendations drawn
+   > from the ML findings.
+   >
+   > Structure the code in modules, add tests, and comment in
+   > English.
+
+
+ Expected inputs:
+     • Policy and claims database with driver and vehicle variables
+
+ Expected outputs:
+     • Complete pipeline, frequency-severity GLM, ML models, comparison and SHAP interpretability
+     • A GLM adjustment recommendation report
+
+
+   Note: Check your state's rules before using certain rating variables: credit-based insurance scores, for
+   example, are restricted or banned in several states. Variable selection is a regulatory question as much as a
+   statistical one.
+
+
+
+
+                                                                          45
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+   Note: In practice the number of variables considered is much higher, and each of the steps articulated here
+   requires abundant actuarial judgment. For example, in step 1 the treatment of missing values is currently a
+   hotly debated topic: distinguishing a random omission from a strategic one (a prospect who did not indicate a
+   continuous insurance history may have made an honest mistake, or may be purposefully hiding an insurance
+   gap that would have negative consequences).
+
+
+
+   Companion resources: replicate this use case at home — the project folder (CLAUDE.md, ready-to-paste
+   prompts, dataset and instructions) is available for download: Google Drive folder. The pack works on
+   freMTPL2freq, a public dataset of 678,000 motor third-party liability policies from the CASdatasets collection,
+   and its prompt also covers the documentation and backtesting of the next use case.
+
+
+
+ Use case 25 — Documentation, backtesting and the rate filing
+ deck
+
+   Situation: A pricing model does not live only on the day it is built. It must be documented for compliance and
+   validation, backtested regularly to check it holds up, and presented to management and to the state
+   insurance department in a rate filing. These three tasks return with every rate revision and consume a lot of
+   time.
+
+ What Claude Code will design: from the pricing model — technical documentation, automated
+ backtesting, and a presentation-ready deck.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > From my auto pricing model in ./pricing, produce three
+   > deliverables:
+   >
+   > 1. TECHNICAL DOCUMENTATION (Markdown): methodology, retained
+   >    variables and their justification, GLM relativities,
+   >    assumptions, model limitations. LaTeX formulas. A style
+   >    suited to internal validation and to supporting a state rate
+   >    filing.
+   >
+   > 2. BACKTESTING: compare the model's predictions to actually
+   >    observed claims on a test period. Compute gaps by segment,
+   >    check the stability of relativities over time, and flag
+   >    segments where the model drifts. Produce the charts
+   >    (predicted vs observed, gap evolution by cohort).
+   >
+   > 3. PRESENTATION DECK (PowerPoint): about ten slides for
+   >    management: context, methodology in one slide, key results,
+   >    segments at stake, estimated rate impact, recommendations.
+   >    Sober, readable style, one message per slide.
+   >
+   > Comment your approach and flag the areas an actuary must
+   > validate.
+
+
+ Expected outputs:
+     • Pricing model technical documentation, automated backtesting, management deck
+
+
+
+                                                                          46
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ 6.2 Reserving
+
+ Use case 26 — Reserving: Chain Ladder, Bornhuetter-Ferguson,
+ Mack
+
+   Situation: P&C reserving rests on classic methods applied to loss development triangles — the same
+   triangles filed in Schedule P. The actuary produces estimates by line of business, with confidence intervals,
+   and analyzes movements against prior evaluations.
+
+ What Claude Code will design: a reserving tool that applies several methods to the triangles, computes
+ reserves and confidence intervals, and produces the charts and the export.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Build a P&C reserving tool in Python. It reads loss development
+   > triangles from an Excel file (one tab per line of business,
+   > cumulative triangles). It applies three methods: Chain Ladder,
+   > Bornhuetter-Ferguson (with an a priori loss ratio per line), and
+   > Mack for confidence intervals.
+   > For each line, compute: development factors, ultimate losses,
+   > the IBNR reserve, and the standard error of the estimate (Mack).
+   > Outputs: a summary table by line and method, the completed
+   > triangles, charts (development factors, run-off profile, method
+   > comparison), and an Excel export with conditional formatting.
+   > Comment in English.
+
+
+ Expected inputs:
+     • Loss triangles by line of business, a priori loss ratios
+
+ Expected outputs:
+     • Reserves by method and line, confidence intervals, charts, Excel export
+
+
+   Companion resources: replicate this use case at home — the project folder (CLAUDE.md, ready-to-paste
+   prompts, dataset and instructions) is available for download: Google Drive folder. The pack ships a ten-year
+   auto claims development triangle and implements the plain Chain Ladder; the prompt above extends it to
+   Bornhuetter-Ferguson and Mack — a good exercise in making a prompt go further than its starting pack.
+
+
+
+   Companion resources: the extended version of this exact use case — the three methods, ready to run — is
+   also available as its own project folder: Google Drive folder. It carries two ten-year triangles (auto,
+   homeowners) with earned premiums and a priori loss ratios, plus hand-checked reference results for the
+   three methods.
+
+
+
+
+                                                                          47
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ 6.3 Performance, Reporting and Compliance
+
+ Use case 27 — Profitability analysis and portfolio steering
+
+   Situation: The technical division studies portfolio performance (auto, homeowners) and recommends
+   strategic adjustments to management: loss ratio and combined ratio tracking by segment, identification of
+   loss-making segments, drift detection.
+
+ What Claude Code will design: a profitability dashboard that decomposes the combined ratio by
+ segment, automatically flags deteriorating segments, and formulates action levers.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a profitability analysis tool for a P&C portfolio.
+   > Inputs: monthly premiums and losses by segment (line, territory,
+   > distribution channel, customer profile), and expenses.
+   > Compute by segment: the loss ratio, the expense ratio, the
+   > combined ratio. Identify segments whose combined ratio exceeds
+   > 100% and those whose trend has deteriorated over the last 6
+   > months.
+   > Produce a dashboard (Streamlit) with: a ratio overview, a
+   > ranking of the worst segments, a trend analysis, and for each
+   > problem segment, action levers (rate adjustment, underwriting
+   > tightening). Add a management report export. Comment in
+   > English.
+
+
+ Expected outputs:
+     • Profitability dashboard by segment, drift detection, action levers, management report
+
+
+ Use case 28 — Data visualization and exploratory portfolio
+ analysis
+
+   Situation: Before any modeling, the P&C actuary must understand the portfolio: variable distributions, claim
+   experience by segment, correlations, outliers. This exploratory analysis is time-consuming and redone for
+   every study.
+
+ What Claude Code will design: an automatic exploratory analysis report and a reusable set of
+ visualizations for any P&C portfolio.
+
+
+
+
+                                                                          48
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
+
+Claude Code for Actuaries — The Complete Guide                                                                        E. C. Nzati & D. Schraub
+
+
+
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > Create a Python exploratory analysis module for a P&C
+   > portfolio. Input: a policy and claims file. Automatically
+   > produce:
+   > - a data quality report (missing values, outliers, duplicates,
+   >   date consistency),
+   > - the distribution of each variable (histograms, box plots),
+   > - claim experience by modality of each rating variable
+   >   (frequency and average cost),
+   > - a correlation matrix and identification of redundant
+   >   variables,
+   > - the main charts exported as PNG plus an HTML summary report.
+   > The module must be reusable on any portfolio by just changing
+   > the input file. Comment in English.
+
+
+ Expected outputs:
+     • Data quality report, visualizations, claim experience analysis, HTML report
+
+
+ Use case 29 — Drafting actuarial reports and regulatory watch
+
+   Situation: P&C actuaries produce many reports (actuarial report, technical memos, support for the
+   Statement of Actuarial Opinion). Drafting and keeping these documents consistent takes considerable time.
+
+ What Claude Code will design: a pre-filled actuarial report frame built from the models' results, and help
+ applying the standards.
+
+ ■ Claude Code Prompt
+   ● ● ● claude
+
+
+   > From my model results in ./results (reserves, ratios, claim
+   > experience) and the actuarial report template in
+   > ./templates/report_frame.docx, generate a draft P&C actuarial
+   > report:
+   > - follow the template structure,
+   > - insert the result tables and charts in the right places,
+   > - draft the analysis commentary in clear language,
+   > - add a section on compliance with ASOP 36 (statements of
+   >   actuarial opinion on reserves) and ASOP 43 (unpaid claim
+   >   estimates), and a section on NAIC annual statement
+   >   consistency (Schedule P tie-out),
+   > - flag the points requiring human validation.
+   > Produce a Word document. Do not replace my judgment: clearly
+   > mark the zones to complete or validate. Comment your approach
+   > in English.
+
+
+ Expected outputs:
+     • A pre-filled actuarial report draft, ASOP sections, Schedule P tie-out, zones flagged for validation
+
+
+
+
+                                                                          49
+                                      © 2026 Necflow AI & David Schraub Actuarial Consultancy. All rights reserved.
